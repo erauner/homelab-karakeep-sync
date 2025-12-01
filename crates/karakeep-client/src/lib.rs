@@ -28,12 +28,18 @@ impl KarakeepClient {
 
     pub async fn create_bookmark(&self, bookmark: &BookmarkCreate) -> anyhow::Result<String> {
         let api_url = format!("{}/api/v1/bookmarks", self.url);
-        let params = serde_json::json!({
+        let mut params = serde_json::json!({
             "type": "link",
             "title": bookmark.title,
             "url": bookmark.url,
-            "createdAt": bookmark.created_at,
         });
+
+        if bookmark.created_at.is_some() {
+            params.as_object_mut().unwrap().insert(
+                "createdAt".to_string(),
+                bookmark.created_at.clone().unwrap().into(),
+            );
+        }
 
         let resp = self
             .client
