@@ -6,12 +6,27 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
+  - name: jnlp
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
   - name: kaniko
     image: gcr.io/kaniko-project/executor:v1.23.2-debug
     command:
     - /busybox/sleep
     args:
     - "86400"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
     volumeMounts:
     - name: docker-config
       mountPath: /kaniko/.docker
