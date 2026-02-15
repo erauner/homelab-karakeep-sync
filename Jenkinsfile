@@ -56,7 +56,7 @@ spec:
                 container('kaniko') {
                     script {
                         def imageTag = env.TAG_NAME ?: 'latest'
-                        def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        def gitCommit = env.GIT_COMMIT?.take(7) ?: 'unknown'
                         sh """
                             /kaniko/executor \
                                 --context=\${WORKSPACE} \
