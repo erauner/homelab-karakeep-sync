@@ -1,9 +1,28 @@
-@Library('homelab-jenkins-library@main') _
-
 pipeline {
     agent {
         kubernetes {
-            yaml homelab.podTemplate('kaniko')
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:v1.23.2-debug
+    command:
+    - /busybox/sleep
+    args:
+    - "86400"
+    volumeMounts:
+    - name: docker-config
+      mountPath: /kaniko/.docker
+  volumes:
+  - name: docker-config
+    secret:
+      secretName: nexus-docker-config
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+'''
         }
     }
 
@@ -25,9 +44,11 @@ pipeline {
                 container('kaniko') {
                     script {
                         def imageTag = env.TAG_NAME ?: 'latest'
-                        def gitCommit = homelab.gitShortCommit()
+                        def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                         sh """
                             /kaniko/executor \
+                                --context=\${WORKSPACE} \
+                                --dockerfile=\${WORKSPACE}/Dockerfile \
                                 --destination=${REGISTRY}/${IMAGE_NAME}:${imageTag} \
                                 --destination=${REGISTRY}/${IMAGE_NAME}:${gitCommit} \
                                 --cache=true \
@@ -40,11 +61,6 @@ pipeline {
     }
 
     post {
-        failure {
-            script {
-                homelab.notifyDiscord(status: 'FAILURE')
-            }
-        }
         success {
             script {
                 if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master' || env.TAG_NAME) {
