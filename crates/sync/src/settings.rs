@@ -64,6 +64,9 @@ pub(crate) struct YouTubeSettings {
     pub clientsecret: Option<String>,
     /// OAuth2 refresh token (obtained via one-time auth flow)
     pub refreshtoken: Option<String>,
+    /// Comma-separated list of category IDs to exclude (e.g., "10" for Music)
+    /// See: https://developers.google.com/youtube/v3/docs/videoCategories/list
+    pub excludecategories: Option<String>,
     /// Sync schedule (defaults to @daily)
     pub schedule: String,
 }

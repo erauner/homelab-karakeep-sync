@@ -33,6 +33,8 @@ struct VideoSnippet {
     title: String,
     #[serde(rename = "publishedAt")]
     published_at: Option<String>,
+    #[serde(rename = "categoryId")]
+    category_id: Option<String>,
 }
 
 async fn refresh_access_token(client_id: &str, client_secret: &str, refresh_token: &str) -> anyhow::Result<String> {
@@ -175,8 +177,27 @@ impl super::Plugin for YouTubeLiked {
 fn process_response(video_resp: VideoListResponse) -> Option<(Vec<BookmarkCreate>, Option<String>)> {
     let items = video_resp.items.unwrap_or_default();
 
+    // Get excluded categories from settings
+    let settings = settings::get_settings();
+    let excluded_categories: Vec<&str> = settings
+        .youtube
+        .excludecategories
+        .as_ref()
+        .map(|s| s.split(',').map(|c| c.trim()).collect())
+        .unwrap_or_default();
+
     let bookmarks: Vec<BookmarkCreate> = items
         .into_iter()
+        .filter(|item| {
+            // Filter out excluded categories
+            if let Some(ref cat_id) = item.snippet.category_id {
+                if excluded_categories.contains(&cat_id.as_str()) {
+                    tracing::debug!("skipping video in excluded category {}: {}", cat_id, item.snippet.title);
+                    return false;
+                }
+            }
+            true
+        })
         .map(|item| {
             let url = format!("https://www.youtube.com/watch?v={}", item.id);
             BookmarkCreate {

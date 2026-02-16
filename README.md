@@ -88,12 +88,25 @@ Pinboard sync will be skipped if `KS_PINBOARD_TOKEN` is not set.
 
 ### YouTube Liked Videos
 
-| Variable                | Required | Description                                      |
-| ----------------------- | -------- | ------------------------------------------------ |
-| `KS_YOUTUBE_CLIENTID`   | ❌       | Your Google Cloud OAuth2 client ID               |
-| `KS_YOUTUBE_CLIENTSECRET` | ❌     | Your Google Cloud OAuth2 client secret           |
-| `KS_YOUTUBE_REFRESHTOKEN` | ❌     | OAuth2 refresh token (from one-time auth flow)   |
-| `KS_YOUTUBE_SCHEDULE`   | ❌       | Sync schedule in cron format (default: `@daily`) |
+| Variable                     | Required | Description                                      |
+| ---------------------------- | -------- | ------------------------------------------------ |
+| `KS_YOUTUBE_CLIENTID`        | ❌       | Your Google Cloud OAuth2 client ID               |
+| `KS_YOUTUBE_CLIENTSECRET`    | ❌       | Your Google Cloud OAuth2 client secret           |
+| `KS_YOUTUBE_REFRESHTOKEN`    | ❌       | OAuth2 refresh token (from one-time auth flow)   |
+| `KS_YOUTUBE_EXCLUDECATEGORIES` | ❌     | Comma-separated category IDs to exclude (e.g., `10` for Music) |
+| `KS_YOUTUBE_SCHEDULE`        | ❌       | Sync schedule in cron format (default: `@daily`) |
+
+**Common YouTube Category IDs:**
+- `10` - Music
+- `1` - Film & Animation
+- `20` - Gaming
+- `22` - People & Blogs
+- `24` - Entertainment
+- `25` - News & Politics
+- `27` - Education
+- `28` - Science & Technology
+
+See [YouTube Video Categories API](https://developers.google.com/youtube/v3/docs/videoCategories/list) for the full list.
 
 To set up YouTube sync:
 
@@ -171,6 +184,7 @@ services:
       - KS_YOUTUBE_CLIENTID=<your_google_oauth_client_id> # optional
       - KS_YOUTUBE_CLIENTSECRET=<your_google_oauth_client_secret> # optional
       - KS_YOUTUBE_REFRESHTOKEN=<your_youtube_refresh_token> # optional
+      - KS_YOUTUBE_EXCLUDECATEGORIES=10 # optional - exclude Music (category 10)
       - KS_YOUTUBE_SCHEDULE=@daily # optional Cron format, e.g., "@hourly", "@daily", "0 0 * * *" default is "@daily"
 ```
 
