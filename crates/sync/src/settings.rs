@@ -54,6 +54,20 @@ pub(crate) struct PinboardSettings {
     pub schedule: String,
 }
 
+/// YouTube Data API v3 settings for syncing liked videos
+/// Requires OAuth2 credentials from Google Cloud Console
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct YouTubeSettings {
+    /// OAuth2 client ID from Google Cloud Console
+    pub clientid: Option<String>,
+    /// OAuth2 client secret from Google Cloud Console
+    pub clientsecret: Option<String>,
+    /// OAuth2 refresh token (obtained via one-time auth flow)
+    pub refreshtoken: Option<String>,
+    /// Sync schedule (defaults to @daily)
+    pub schedule: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct Settings {
     pub hn: HNSettings,
@@ -64,6 +78,9 @@ pub(crate) struct Settings {
     pub redditfeed: RedditFeedSettings,
     pub github: GitHubSettings,
     pub pinboard: PinboardSettings,
+    /// YouTube liked videos (requires OAuth2)
+    /// Env var prefix: KS_YOUTUBE_*
+    pub youtube: YouTubeSettings,
 }
 
 impl Settings {
@@ -81,6 +98,8 @@ impl Settings {
             .set_override("github.schedule", "@daily")
             .unwrap()
             .set_override("pinboard.schedule", "@daily")
+            .unwrap()
+            .set_override("youtube.schedule", "@daily")
             .unwrap()
             .build()
             .unwrap();

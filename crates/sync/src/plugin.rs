@@ -3,6 +3,7 @@ mod hn_upvotes;
 mod pinboard;
 mod reddit_feed;
 mod reddit_saves;
+mod youtube_liked;
 
 use crate::karakeep;
 use async_trait::async_trait;
@@ -76,5 +77,6 @@ pub fn get_plugins() -> Vec<Box<dyn Plugin>> {
         Box::new(reddit_feed::RedditUpvotedFeed {}),
         Box::new(github_stars::GithubStars {}),
         Box::new(pinboard::PinboardBookmarks {}),
+        Box::new(youtube_liked::YouTubeLiked {}),
     ]
 }

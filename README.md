@@ -12,6 +12,7 @@ When looking up something interesting you found in the past, you probably check 
 - ✅ Reddit saved posts
 - ✅ Github stars
 - ✅ Pinboard bookmarks
+- ✅ YouTube liked videos
 - 🚧 X bookmarks (planned)
 - 🚧 Bluesky bookmarks (planned)
 
@@ -85,6 +86,60 @@ Pinboard bookmarks will be synced to a list named `Pinboard` in your Karakeep in
 
 Pinboard sync will be skipped if `KS_PINBOARD_TOKEN` is not set.
 
+### YouTube Liked Videos
+
+| Variable                | Required | Description                                      |
+| ----------------------- | -------- | ------------------------------------------------ |
+| `KS_YOUTUBE_CLIENTID`   | ❌       | Your Google Cloud OAuth2 client ID               |
+| `KS_YOUTUBE_CLIENTSECRET` | ❌     | Your Google Cloud OAuth2 client secret           |
+| `KS_YOUTUBE_REFRESHTOKEN` | ❌     | OAuth2 refresh token (from one-time auth flow)   |
+| `KS_YOUTUBE_SCHEDULE`   | ❌       | Sync schedule in cron format (default: `@daily`) |
+
+To set up YouTube sync:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or use an existing one)
+3. Enable the **YouTube Data API v3** in [APIs & Services > Library](https://console.cloud.google.com/apis/library/youtube.googleapis.com)
+4. Go to [APIs & Services > Credentials](https://console.cloud.google.com/apis/credentials)
+5. Click "Create Credentials" > "OAuth client ID"
+6. If prompted, configure the OAuth consent screen:
+   - User Type: External (or Internal if using Google Workspace)
+   - Add yourself as a test user
+   - Add scope: `https://www.googleapis.com/auth/youtube.readonly`
+7. For Application type, choose "Desktop app"
+8. Note your **Client ID** and **Client Secret**
+
+To obtain a refresh token, run this one-time auth flow:
+
+```bash
+# Replace with your client_id and client_secret
+CLIENT_ID="your-client-id.apps.googleusercontent.com"
+CLIENT_SECRET="your-client-secret"
+
+# Step 1: Open this URL in your browser and authorize
+echo "Open this URL in your browser:"
+echo "https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=http://localhost:8080&response_type=code&scope=https://www.googleapis.com/auth/youtube.readonly&access_type=offline&prompt=consent"
+
+# Step 2: After authorizing, you'll be redirected to localhost with a code parameter
+# Copy the code from the URL (e.g., http://localhost:8080?code=4/0ABC...&scope=...)
+# The page will fail to load (that's expected) - just copy the code
+
+# Step 3: Exchange the code for tokens
+AUTH_CODE="paste-your-auth-code-here"
+curl -s -X POST https://oauth2.googleapis.com/token \
+  -d "client_id=${CLIENT_ID}" \
+  -d "client_secret=${CLIENT_SECRET}" \
+  -d "code=${AUTH_CODE}" \
+  -d "grant_type=authorization_code" \
+  -d "redirect_uri=http://localhost:8080" | jq .
+
+# The response will contain your refresh_token - save it!
+```
+
+YouTube liked videos will be synced to a list named `YouTube Liked` in your Karakeep instance.
+
+YouTube sync will be skipped if any of `KS_YOUTUBE_CLIENTID`, `KS_YOUTUBE_CLIENTSECRET`, or `KS_YOUTUBE_REFRESHTOKEN` is not set.
+
 ## Deployment
 
 Create a `docker-compose.yml` file with the following content:
@@ -112,6 +167,11 @@ services:
 
       - KS_PINBOARD_TOKEN=<your_pinboard_api_token> # optional
       - KS_PINBOARD_SCHEDULE=@daily # optional Cron format, e.g., "@hourly", "@daily", "0 0 * * *" default is "@daily"
+
+      - KS_YOUTUBE_CLIENTID=<your_google_oauth_client_id> # optional
+      - KS_YOUTUBE_CLIENTSECRET=<your_google_oauth_client_secret> # optional
+      - KS_YOUTUBE_REFRESHTOKEN=<your_youtube_refresh_token> # optional
+      - KS_YOUTUBE_SCHEDULE=@daily # optional Cron format, e.g., "@hourly", "@daily", "0 0 * * *" default is "@daily"
 ```
 
 Then run:
