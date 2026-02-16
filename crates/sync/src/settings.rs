@@ -31,18 +31,19 @@ pub(crate) struct RedditSettings {
 }
 
 /// Reddit JSON feed settings - supports multiple feed types from old.reddit.com/prefs/feeds
+/// Note: Field names use no underscores to work with config crate's env var parsing
+/// Env vars: KS_REDDITFEED_SAVEDURL, KS_REDDITFEED_UPVOTEDURL, etc.
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct RedditFeedSettings {
-    /// JSON feed URL for saved links
-    pub saved_url: Option<String>,
-    /// JSON feed URL for upvoted links
-    pub upvoted_url: Option<String>,
-    /// Only sync posts created after this Unix timestamp (e.g., 1708041600 for 2024-02-16)
-    /// Set this to "now" when first deploying to skip historical items
-    pub since_timestamp: Option<i64>,
-    /// Exclude NSFW posts (over_18 = true)
+    /// JSON feed URL for saved links (env: KS_REDDITFEED_SAVEDURL)
+    pub savedurl: Option<String>,
+    /// JSON feed URL for upvoted links (env: KS_REDDITFEED_UPVOTEDURL)
+    pub upvotedurl: Option<String>,
+    /// Only sync posts created after this Unix timestamp (env: KS_REDDITFEED_SINCETIMESTAMP)
+    pub sincetimestamp: Option<i64>,
+    /// Exclude NSFW posts (env: KS_REDDITFEED_EXCLUDENSFW)
     #[serde(default)]
-    pub exclude_nsfw: bool,
+    pub excludensfw: bool,
     /// Sync schedule (defaults to @daily)
     pub schedule: String,
 }
@@ -59,7 +60,8 @@ pub(crate) struct Settings {
     pub karakeep: KarakeepSettings,
     pub reddit: RedditSettings,
     /// Reddit JSON feeds (no OAuth required) - from old.reddit.com/prefs/feeds
-    pub reddit_feed: RedditFeedSettings,
+    /// Env var prefix: KS_REDDITFEED_*
+    pub redditfeed: RedditFeedSettings,
     pub github: GitHubSettings,
     pub pinboard: PinboardSettings,
 }
@@ -74,7 +76,7 @@ impl Settings {
             .unwrap()
             .set_override("reddit.schedule", "@daily")
             .unwrap()
-            .set_override("reddit_feed.schedule", "@daily")
+            .set_override("redditfeed.schedule", "@daily")
             .unwrap()
             .set_override("github.schedule", "@daily")
             .unwrap()

@@ -200,13 +200,13 @@ impl super::Plugin for RedditSavedFeed {
     ) -> anyhow::Result<Pin<Box<dyn Stream<Item = Vec<BookmarkCreate>> + Send>>> {
         let settings = settings::get_settings();
         let feed_url = settings
-            .reddit_feed
-            .saved_url
+            .redditfeed
+            .savedurl
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Reddit saved feed URL not configured"))?
             .clone();
-        let since_timestamp = settings.reddit_feed.since_timestamp;
-        let exclude_nsfw = settings.reddit_feed.exclude_nsfw;
+        let since_timestamp = settings.redditfeed.sincetimestamp;
+        let exclude_nsfw = settings.redditfeed.excludensfw;
 
         tracing::info!("using Reddit saved JSON feed (no OAuth)");
         stream_from_feed(feed_url, since_timestamp, exclude_nsfw).await
@@ -214,12 +214,12 @@ impl super::Plugin for RedditSavedFeed {
 
     fn is_activated(&self) -> bool {
         let settings = settings::get_settings();
-        settings.reddit_feed.saved_url.is_some()
+        settings.redditfeed.savedurl.is_some()
     }
 
     fn recurring_schedule(&self) -> String {
         let settings = settings::get_settings();
-        settings.reddit_feed.schedule.clone()
+        settings.redditfeed.schedule.clone()
     }
 }
 
@@ -241,13 +241,13 @@ impl super::Plugin for RedditUpvotedFeed {
     ) -> anyhow::Result<Pin<Box<dyn Stream<Item = Vec<BookmarkCreate>> + Send>>> {
         let settings = settings::get_settings();
         let feed_url = settings
-            .reddit_feed
-            .upvoted_url
+            .redditfeed
+            .upvotedurl
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Reddit upvoted feed URL not configured"))?
             .clone();
-        let since_timestamp = settings.reddit_feed.since_timestamp;
-        let exclude_nsfw = settings.reddit_feed.exclude_nsfw;
+        let since_timestamp = settings.redditfeed.sincetimestamp;
+        let exclude_nsfw = settings.redditfeed.excludensfw;
 
         tracing::info!("using Reddit upvoted JSON feed (no OAuth)");
         stream_from_feed(feed_url, since_timestamp, exclude_nsfw).await
@@ -255,11 +255,11 @@ impl super::Plugin for RedditUpvotedFeed {
 
     fn is_activated(&self) -> bool {
         let settings = settings::get_settings();
-        settings.reddit_feed.upvoted_url.is_some()
+        settings.redditfeed.upvotedurl.is_some()
     }
 
     fn recurring_schedule(&self) -> String {
         let settings = settings::get_settings();
-        settings.reddit_feed.schedule.clone()
+        settings.redditfeed.schedule.clone()
     }
 }
