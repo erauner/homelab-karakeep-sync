@@ -26,6 +26,12 @@ pub trait Plugin: Send + Sync + 'static {
         true
     }
 
+    /// If true, sync will process ALL pages regardless of consecutive existing bookmarks.
+    /// Use for initial full imports where order doesn't guarantee newest-first.
+    fn force_full_sync(&self) -> bool {
+        false
+    }
+
     async fn sync(&self) -> anyhow::Result<i32> {
         let mut stream = self.to_bookmark_stream().await?;
         let list_name = self.list_name();
@@ -52,7 +58,8 @@ pub trait Plugin: Send + Sync + 'static {
                 }
 
                 // if we have 5 consecutive existing posts, we can assume we've caught up
-                if exists >= 5 {
+                // (unless force_full_sync is enabled for initial imports)
+                if exists >= 5 && !self.force_full_sync() {
                     tracing::info!("5 consecutive existing posts found, stopping sync");
                     return Ok(created_count);
                 }

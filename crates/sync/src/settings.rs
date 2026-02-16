@@ -67,6 +67,10 @@ pub(crate) struct YouTubeSettings {
     /// Comma-separated list of category IDs to exclude (e.g., "10" for Music)
     /// See: https://developers.google.com/youtube/v3/docs/videoCategories/list
     pub excludecategories: Option<String>,
+    /// Force full sync of all pages (ignores "5 consecutive existing" optimization)
+    /// Set to "true" for initial import of all historical likes
+    #[serde(default)]
+    pub fullsync: bool,
     /// Sync schedule (defaults to @daily)
     pub schedule: String,
 }

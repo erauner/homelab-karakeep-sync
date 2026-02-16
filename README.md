@@ -94,7 +94,10 @@ Pinboard sync will be skipped if `KS_PINBOARD_TOKEN` is not set.
 | `KS_YOUTUBE_CLIENTSECRET`    | ❌       | Your Google Cloud OAuth2 client secret           |
 | `KS_YOUTUBE_REFRESHTOKEN`    | ❌       | OAuth2 refresh token (from one-time auth flow)   |
 | `KS_YOUTUBE_EXCLUDECATEGORIES` | ❌     | Comma-separated category IDs to exclude (e.g., `10` for Music) |
+| `KS_YOUTUBE_FULLSYNC`        | ❌       | Set to `true` for initial import of ALL historical likes |
 | `KS_YOUTUBE_SCHEDULE`        | ❌       | Sync schedule in cron format (default: `@daily`) |
+
+**Note:** By default, the sync stops after finding 5 consecutive existing bookmarks (optimization for daily syncs). Set `KS_YOUTUBE_FULLSYNC=true` for the first run to import your entire like history, then remove it for subsequent runs.
 
 **Common YouTube Category IDs:**
 - `10` - Music
@@ -185,6 +188,7 @@ services:
       - KS_YOUTUBE_CLIENTSECRET=<your_google_oauth_client_secret> # optional
       - KS_YOUTUBE_REFRESHTOKEN=<your_youtube_refresh_token> # optional
       - KS_YOUTUBE_EXCLUDECATEGORIES=10 # optional - exclude Music (category 10)
+      - KS_YOUTUBE_FULLSYNC=true # optional - set for first run to import all history
       - KS_YOUTUBE_SCHEDULE=@daily # optional Cron format, e.g., "@hourly", "@daily", "0 0 * * *" default is "@daily"
 ```
 

@@ -172,6 +172,11 @@ impl super::Plugin for YouTubeLiked {
         let settings = settings::get_settings();
         settings.youtube.schedule.clone()
     }
+
+    fn force_full_sync(&self) -> bool {
+        let settings = settings::get_settings();
+        settings.youtube.fullsync
+    }
 }
 
 fn process_response(video_resp: VideoListResponse) -> Option<(Vec<BookmarkCreate>, Option<String>)> {
