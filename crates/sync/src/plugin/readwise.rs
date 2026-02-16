@@ -59,12 +59,21 @@ impl super::Plugin for ReadwiseHighlights {
             .expect("Readwise token must be set")
             .clone();
 
-        // Location filter - defaults to "archive" (only sync archived items)
-        let location = settings
+        // Parse locations - comma-separated, defaults to "archive"
+        // Valid: new, later, shortlist, archive, feed
+        let locations: Vec<String> = settings
             .readwise
             .location
-            .clone()
-            .unwrap_or_else(|| "archive".to_string());
+            .as_ref()
+            .map(|s| {
+                s.split(',')
+                    .map(|l| l.trim().to_lowercase())
+                    .filter(|l| !l.is_empty())
+                    .collect()
+            })
+            .unwrap_or_else(|| vec!["archive".to_string()]);
+
+        tracing::info!("Readwise will sync from locations: {:?}", locations);
 
         // Parse category filter (filter out empty strings to handle KS_READWISE_CATEGORY="")
         let categories: HashSet<String> = settings
@@ -79,19 +88,38 @@ impl super::Plugin for ReadwiseHighlights {
             })
             .unwrap_or_default();
 
-        // Track seen URLs to avoid duplicates
+        // Track seen URLs to avoid duplicates across all locations
         let seen_urls = Arc::new(Mutex::new(HashSet::<String>::new()));
 
+        // State: (location_index, page_cursor)
+        // page_cursor: 0 = first page, None = done with this location
+        let initial_state: (usize, Option<i64>) = (0, Some(0));
+
         let stream = stream::unfold(
-            Some(0i64),  // 0 means first page
-            move |page_cursor| {
+            initial_state,
+            move |state| {
                 let token = token.clone();
-                let location = location.clone();
+                let locations = locations.clone();
                 let categories = categories.clone();
                 let seen_urls = Arc::clone(&seen_urls);
 
                 async move {
-                    let page_cursor = page_cursor?;
+                    let (location_idx, page_cursor) = state;
+
+                    // Check if we've processed all locations
+                    if location_idx >= locations.len() {
+                        return None;
+                    }
+
+                    let page_cursor = match page_cursor {
+                        Some(c) => c,
+                        None => {
+                            // Move to next location
+                            return Some((vec![], (location_idx + 1, Some(0))));
+                        }
+                    };
+
+                    let location = &locations[location_idx];
 
                     tracing::info!(
                         "fetching Reader documents (location={}), cursor: {:?}",
@@ -115,19 +143,33 @@ impl super::Plugin for ReadwiseHighlights {
                         url.push_str(&format!("&pageCursor={}", page_cursor));
                     }
 
-                    let resp = client
+                    let resp = match client
                         .get(&url)
                         .header("Authorization", format!("Token {}", token))
                         .send()
                         .await
-                        .ok()?;
+                    {
+                        Ok(r) => r,
+                        Err(e) => {
+                            tracing::error!("Reader API request failed: {}", e);
+                            // Move to next location on error
+                            return Some((vec![], (location_idx + 1, Some(0))));
+                        }
+                    };
 
                     if !resp.status().is_success() {
                         tracing::error!("Reader API error: {}", resp.status());
-                        return None;
+                        // Move to next location on error
+                        return Some((vec![], (location_idx + 1, Some(0))));
                     }
 
-                    let reader_resp: ReaderListResponse = resp.json().await.ok()?;
+                    let reader_resp: ReaderListResponse = match resp.json().await {
+                        Ok(r) => r,
+                        Err(e) => {
+                            tracing::error!("Reader API parse error: {}", e);
+                            return Some((vec![], (location_idx + 1, Some(0))));
+                        }
+                    };
                     let next_cursor = reader_resp.next_page_cursor;
 
                     // Filter and deduplicate
@@ -183,12 +225,16 @@ impl super::Plugin for ReadwiseHighlights {
                         location
                     );
 
-                    // Return None to stop iteration if no more pages
-                    if bookmarks.is_empty() && next_cursor.is_none() {
-                        return None;
-                    }
+                    // Determine next state
+                    let next_state = if next_cursor.is_some() {
+                        // More pages in this location
+                        (location_idx, next_cursor)
+                    } else {
+                        // Done with this location, move to next
+                        (location_idx + 1, Some(0))
+                    };
 
-                    Some((bookmarks, next_cursor))
+                    Some((bookmarks, next_state))
                 }
             },
         );
@@ -239,5 +285,28 @@ mod test {
             .filter(|c| !c.is_empty())
             .collect();
         assert!(parsed.is_empty());
+    }
+
+    #[test]
+    fn test_readwise_location_filter() {
+        // Reader API locations: new, later, shortlist, archive, feed
+        let location = "archive,shortlist";
+        let parsed: Vec<String> = location
+            .split(',')
+            .map(|l| l.trim().to_lowercase())
+            .filter(|l| !l.is_empty())
+            .collect();
+        assert_eq!(parsed, vec!["archive", "shortlist"]);
+    }
+
+    #[test]
+    fn test_single_location() {
+        let location = "archive";
+        let parsed: Vec<String> = location
+            .split(',')
+            .map(|l| l.trim().to_lowercase())
+            .filter(|l| !l.is_empty())
+            .collect();
+        assert_eq!(parsed, vec!["archive"]);
     }
 }
