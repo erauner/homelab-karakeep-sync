@@ -75,6 +75,24 @@ pub(crate) struct YouTubeSettings {
     pub schedule: String,
 }
 
+/// Readwise API settings for syncing highlights and articles
+/// Get your token from https://readwise.io/access_token
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ReadwiseSettings {
+    /// Readwise API access token
+    pub token: Option<String>,
+    /// Comma-separated list of categories to include (e.g., "articles,books,tweets")
+    /// Valid: articles, books, tweets, supplementals, podcasts
+    /// If empty, syncs all categories
+    pub categories: Option<String>,
+    /// Force full sync of all pages (ignores "5 consecutive existing" optimization)
+    /// Set to "true" for initial import of all historical highlights
+    #[serde(default)]
+    pub fullsync: bool,
+    /// Sync schedule (defaults to @daily)
+    pub schedule: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct Settings {
     pub hn: HNSettings,
@@ -88,6 +106,9 @@ pub(crate) struct Settings {
     /// YouTube liked videos (requires OAuth2)
     /// Env var prefix: KS_YOUTUBE_*
     pub youtube: YouTubeSettings,
+    /// Readwise highlights and articles
+    /// Env var prefix: KS_READWISE_*
+    pub readwise: ReadwiseSettings,
 }
 
 impl Settings {
@@ -107,6 +128,8 @@ impl Settings {
             .set_override("pinboard.schedule", "@daily")
             .unwrap()
             .set_override("youtube.schedule", "@daily")
+            .unwrap()
+            .set_override("readwise.schedule", "@daily")
             .unwrap()
             .build()
             .unwrap();

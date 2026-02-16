@@ -1,6 +1,7 @@
 mod github_stars;
 mod hn_upvotes;
 mod pinboard;
+mod readwise;
 mod reddit_feed;
 mod reddit_saves;
 mod youtube_liked;
@@ -85,5 +86,6 @@ pub fn get_plugins() -> Vec<Box<dyn Plugin>> {
         Box::new(github_stars::GithubStars {}),
         Box::new(pinboard::PinboardBookmarks {}),
         Box::new(youtube_liked::YouTubeLiked {}),
+        Box::new(readwise::ReadwiseHighlights {}),
     ]
 }
