@@ -198,8 +198,14 @@ impl super::Plugin for ReadwiseHighlights {
 
     fn is_activated(&self) -> bool {
         let settings = settings::get_settings();
-        settings.readwise.token.is_some()
-            && !settings.readwise.token.as_ref().unwrap().is_empty()
+        let has_token = settings.readwise.token.is_some()
+            && !settings.readwise.token.as_ref().unwrap().is_empty();
+        tracing::info!(
+            "Readwise plugin activation check: has_token={}, location={:?}",
+            has_token,
+            settings.readwise.location
+        );
+        has_token
     }
 
     fn recurring_schedule(&self) -> String {
