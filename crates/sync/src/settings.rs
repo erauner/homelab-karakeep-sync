@@ -75,18 +75,24 @@ pub(crate) struct YouTubeSettings {
     pub schedule: String,
 }
 
-/// Readwise API settings for syncing highlights and articles
+/// Readwise Reader API settings for syncing documents
 /// Get your token from https://readwise.io/access_token
+/// Uses Reader API v3 which supports location filtering
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ReadwiseSettings {
-    /// Readwise API access token
+    /// Readwise API access token (same token works for Reader API)
     pub token: Option<String>,
-    /// Comma-separated list of categories to include (e.g., "articles,books,tweets")
-    /// Valid: articles, books, tweets, supplementals, podcasts
+    /// Document location filter - only sync documents in this location
+    /// Valid values: "new", "later", "shortlist", "archive", "feed"
+    /// Default: "archive" (only sync archived items)
+    /// Set to empty string to sync ALL locations (not recommended)
+    pub location: Option<String>,
+    /// Comma-separated list of categories to include (e.g., "article,tweet,video")
+    /// Valid: article, email, rss, highlight, note, pdf, epub, tweet, video
     /// If empty, syncs all categories
-    pub categories: Option<String>,
+    pub category: Option<String>,
     /// Force full sync of all pages (ignores "5 consecutive existing" optimization)
-    /// Set to "true" for initial import of all historical highlights
+    /// Set to "true" for initial import of all historical items
     #[serde(default)]
     pub fullsync: bool,
     /// Sync schedule (defaults to @daily)

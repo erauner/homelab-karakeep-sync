@@ -11,26 +11,35 @@ use tokio::sync::Mutex;
 #[derive(Debug, Clone)]
 pub struct ReadwiseHighlights {}
 
+/// Reader API v3 response structure
+/// Docs: https://readwise.io/reader_api
 #[derive(Debug, Deserialize)]
-struct ExportResponse {
-    results: Vec<ExportResult>,
-    /// nextPageCursor can be a number or null
+struct ReaderListResponse {
+    results: Vec<ReaderDocument>,
+    /// Pagination cursor for next page (integer or null)
     #[serde(rename = "nextPageCursor")]
     next_page_cursor: Option<i64>,
 }
 
+/// Individual document from Reader API
 #[derive(Debug, Deserialize)]
-struct ExportResult {
-    /// Source URL of the article/book/etc
+struct ReaderDocument {
+    /// Unique document ID
+    id: String,
+    /// The URL to open in Reader
+    url: String,
+    /// Original source URL (for articles/tweets/etc)
     source_url: Option<String>,
-    /// Title of the source
-    title: String,
-    /// Category: articles, books, tweets, supplementals, podcasts
-    category: String,
+    /// Document title
+    title: Option<String>,
     /// Author name
     author: Option<String>,
-    /// When the source was last highlighted
-    updated: Option<String>,
+    /// Category: article, email, rss, highlight, note, pdf, epub, tweet, video
+    category: String,
+    /// Location: new, later, shortlist, archive, feed
+    location: String,
+    /// When the document was saved
+    created_at: Option<String>,
 }
 
 #[async_trait]
@@ -50,10 +59,17 @@ impl super::Plugin for ReadwiseHighlights {
             .expect("Readwise token must be set")
             .clone();
 
-        // Parse category filter (filter out empty strings to handle KS_READWISE_CATEGORIES="")
+        // Location filter - defaults to "archive" (only sync archived items)
+        let location = settings
+            .readwise
+            .location
+            .clone()
+            .unwrap_or_else(|| "archive".to_string());
+
+        // Parse category filter (filter out empty strings to handle KS_READWISE_CATEGORY="")
         let categories: HashSet<String> = settings
             .readwise
-            .categories
+            .category
             .as_ref()
             .map(|s| {
                 s.split(',')
@@ -63,13 +79,14 @@ impl super::Plugin for ReadwiseHighlights {
             })
             .unwrap_or_default();
 
-        // Track seen URLs to avoid duplicates (Readwise exports per-highlight, not per-source)
+        // Track seen URLs to avoid duplicates
         let seen_urls = Arc::new(Mutex::new(HashSet::<String>::new()));
 
         let stream = stream::unfold(
             Some(0i64),  // 0 means first page
             move |page_cursor| {
                 let token = token.clone();
+                let location = location.clone();
                 let categories = categories.clone();
                 let seen_urls = Arc::clone(&seen_urls);
 
@@ -77,7 +94,8 @@ impl super::Plugin for ReadwiseHighlights {
                     let page_cursor = page_cursor?;
 
                     tracing::info!(
-                        "fetching Readwise highlights, cursor: {:?}",
+                        "fetching Reader documents (location={}), cursor: {:?}",
+                        location,
                         if page_cursor == 0 {
                             "first page".to_string()
                         } else {
@@ -87,9 +105,14 @@ impl super::Plugin for ReadwiseHighlights {
 
                     let client = reqwest::Client::new();
 
-                    let mut url = "https://readwise.io/api/v2/export/".to_string();
+                    // Build Reader API v3 URL with location filter
+                    // Docs: https://readwise.io/reader_api
+                    let mut url = format!(
+                        "https://readwise.io/api/v3/list/?location={}",
+                        location
+                    );
                     if page_cursor > 0 {
-                        url.push_str(&format!("?pageCursor={}", page_cursor));
+                        url.push_str(&format!("&pageCursor={}", page_cursor));
                     }
 
                     let resp = client
@@ -100,24 +123,21 @@ impl super::Plugin for ReadwiseHighlights {
                         .ok()?;
 
                     if !resp.status().is_success() {
-                        tracing::error!("Readwise API error: {}", resp.status());
+                        tracing::error!("Reader API error: {}", resp.status());
                         return None;
                     }
 
-                    let export_resp: ExportResponse = resp.json().await.ok()?;
-                    let next_cursor = export_resp.next_page_cursor.clone();
+                    let reader_resp: ReaderListResponse = resp.json().await.ok()?;
+                    let next_cursor = reader_resp.next_page_cursor;
 
                     // Filter and deduplicate
                     let mut seen = seen_urls.lock().await;
-                    let bookmarks: Vec<BookmarkCreate> = export_resp
+                    let bookmarks: Vec<BookmarkCreate> = reader_resp
                         .results
                         .into_iter()
-                        .filter(|item| {
-                            // Must have a source URL
-                            if item.source_url.is_none() {
-                                return false;
-                            }
-                            let url = item.source_url.as_ref().unwrap();
+                        .filter(|doc| {
+                            // Get the best URL (prefer source_url, fall back to reader url)
+                            let url = doc.source_url.as_ref().unwrap_or(&doc.url);
 
                             // Skip if already seen
                             if seen.contains(url) {
@@ -126,11 +146,11 @@ impl super::Plugin for ReadwiseHighlights {
 
                             // Apply category filter if specified
                             if !categories.is_empty() {
-                                if !categories.contains(&item.category.to_lowercase()) {
+                                if !categories.contains(&doc.category.to_lowercase()) {
                                     tracing::debug!(
-                                        "skipping {} in category {}: {}",
-                                        item.title,
-                                        item.category,
+                                        "skipping {:?} in category {}: {}",
+                                        doc.title,
+                                        doc.category,
                                         url
                                     );
                                     return false;
@@ -141,22 +161,27 @@ impl super::Plugin for ReadwiseHighlights {
                             seen.insert(url.clone());
                             true
                         })
-                        .map(|item| {
-                            let url = item.source_url.unwrap();
-                            let title = if let Some(author) = item.author {
-                                format!("{} - {}", item.title, author)
-                            } else {
-                                item.title
+                        .map(|doc| {
+                            // Prefer source_url for bookmarking (original article URL)
+                            let url = doc.source_url.unwrap_or(doc.url);
+                            let title = match (doc.title, doc.author) {
+                                (Some(t), Some(a)) => format!("{} - {}", t, a),
+                                (Some(t), None) => t,
+                                (None, _) => url.clone(),
                             };
                             BookmarkCreate {
                                 url,
                                 title,
-                                created_at: item.updated,
+                                created_at: doc.created_at,
                             }
                         })
                         .collect();
 
-                    tracing::info!("processed {} unique sources from Readwise", bookmarks.len());
+                    tracing::info!(
+                        "processed {} documents from Reader (location={})",
+                        bookmarks.len(),
+                        location
+                    );
 
                     // Return None to stop iteration if no more pages
                     if bookmarks.is_empty() && next_cursor.is_none() {
@@ -191,9 +216,22 @@ impl super::Plugin for ReadwiseHighlights {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_readwise_categories() {
-        let categories = "articles,books,tweets";
-        let parsed: Vec<&str> = categories.split(',').map(|c| c.trim()).collect();
-        assert_eq!(parsed, vec!["articles", "books", "tweets"]);
+    fn test_readwise_category_filter() {
+        // Reader API categories: article, email, rss, highlight, note, pdf, epub, tweet, video
+        let category = "article,tweet,video";
+        let parsed: Vec<&str> = category.split(',').map(|c| c.trim()).collect();
+        assert_eq!(parsed, vec!["article", "tweet", "video"]);
+    }
+
+    #[test]
+    fn test_empty_category_filter() {
+        // Empty string should result in no filter (sync all categories)
+        let category = "";
+        let parsed: Vec<&str> = category
+            .split(',')
+            .map(|c| c.trim())
+            .filter(|c| !c.is_empty())
+            .collect();
+        assert!(parsed.is_empty());
     }
 }
