@@ -50,12 +50,17 @@ impl super::Plugin for ReadwiseHighlights {
             .expect("Readwise token must be set")
             .clone();
 
-        // Parse category filter
+        // Parse category filter (filter out empty strings to handle KS_READWISE_CATEGORIES="")
         let categories: HashSet<String> = settings
             .readwise
             .categories
             .as_ref()
-            .map(|s| s.split(',').map(|c| c.trim().to_lowercase()).collect())
+            .map(|s| {
+                s.split(',')
+                    .map(|c| c.trim().to_lowercase())
+                    .filter(|c| !c.is_empty())
+                    .collect()
+            })
             .unwrap_or_default();
 
         // Track seen URLs to avoid duplicates (Readwise exports per-highlight, not per-source)
