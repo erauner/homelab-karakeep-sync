@@ -14,8 +14,9 @@ pub struct ReadwiseHighlights {}
 #[derive(Debug, Deserialize)]
 struct ExportResponse {
     results: Vec<ExportResult>,
+    /// nextPageCursor can be a number or null
     #[serde(rename = "nextPageCursor")]
-    next_page_cursor: Option<String>,
+    next_page_cursor: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +62,7 @@ impl super::Plugin for ReadwiseHighlights {
         let seen_urls = Arc::new(Mutex::new(HashSet::<String>::new()));
 
         let stream = stream::unfold(
-            Some("".to_string()),
+            Some(0i64),  // 0 means first page
             move |page_cursor| {
                 let token = token.clone();
                 let categories = categories.clone();
@@ -72,17 +73,17 @@ impl super::Plugin for ReadwiseHighlights {
 
                     tracing::info!(
                         "fetching Readwise highlights, cursor: {:?}",
-                        if page_cursor.is_empty() {
-                            "first page"
+                        if page_cursor == 0 {
+                            "first page".to_string()
                         } else {
-                            &page_cursor
+                            page_cursor.to_string()
                         }
                     );
 
                     let client = reqwest::Client::new();
 
                     let mut url = "https://readwise.io/api/v2/export/".to_string();
-                    if !page_cursor.is_empty() {
+                    if page_cursor > 0 {
                         url.push_str(&format!("?pageCursor={}", page_cursor));
                     }
 
