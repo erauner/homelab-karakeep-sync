@@ -1,6 +1,7 @@
 mod github_stars;
 mod hn_upvotes;
 mod pinboard;
+mod reddit_feed;
 mod reddit_saves;
 
 use crate::karakeep;
@@ -71,6 +72,8 @@ pub fn get_plugins() -> Vec<Box<dyn Plugin>> {
     vec![
         Box::new(hn_upvotes::HNUpvoted {}),
         Box::new(reddit_saves::RedditSaves {}),
+        Box::new(reddit_feed::RedditSavedFeed {}),
+        Box::new(reddit_feed::RedditUpvotedFeed {}),
         Box::new(github_stars::GithubStars {}),
         Box::new(pinboard::PinboardBookmarks {}),
     ]
