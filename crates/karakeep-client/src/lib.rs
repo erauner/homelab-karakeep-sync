@@ -1,4 +1,5 @@
 use reqwest::{Client, Url};
+use std::time::Duration;
 
 pub struct KarakeepClient {
     url: String,
@@ -18,7 +19,12 @@ impl KarakeepClient {
             reqwest::header::AUTHORIZATION,
             reqwest::header::HeaderValue::from_str(&format!("Bearer {auth_token}")).unwrap(),
         );
-        let client = Client::builder().default_headers(headers).build().unwrap();
+        let client = Client::builder()
+            .default_headers(headers)
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
+            .build()
+            .unwrap();
 
         Self {
             url: url.into(),
